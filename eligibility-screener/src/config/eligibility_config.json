@@ -1,0 +1,115 @@
+{
+  "title": "Federal Benefit Eligibility Screener",
+  "programs": {
+    "SNAP": {
+      "name": "Supplemental Nutrition Assistance Program",
+      "income_limits": {
+        "1": 1632,
+        "2": 2215,
+        "3": 2798
+      },
+      "additional_member": 583
+    },
+    "Medicaid": {
+      "name": "Medicaid",
+      "income_limits": {
+        "1": 15060,
+        "2": 20340,
+        "3": 25620
+      },
+      "additional_member": 5580
+    }
+  },
+  "questions": [
+    {
+      "id": "q1",
+      "name": "monthlyIncome",
+      "type": "text",
+      "title": "What is your total monthly household income?",
+      "inputType": "number",
+      "programs": ["SNAP", "Medicaid"]
+    },
+    {
+      "id": "q2",
+      "name": "householdSize",
+      "type": "text",
+      "title": "How many people are in your household?",
+      "inputType": "number",
+      "programs": ["SNAP", "Medicaid"]
+    },
+    {
+      "id": "q3",
+      "name": "elderlyOrDisabled",
+      "type": "radiogroup",
+      "title": "Is anyone in your household 65 or older or has a disability?",
+      "choices": ["Yes", "No"],
+      "programs": ["Medicaid"]
+    },
+    {
+      "id": "q4",
+      "name": "publicAssistance",
+      "type": "radiogroup",
+      "title": "Are you currently receiving any other forms of public assistance?",
+      "choices": ["Yes", "No"],
+      "programs": ["Medicaid"]
+    }
+  ],
+  "flow": {
+    "start": ["monthlyIncome", "householdSize"],
+    "logic": {
+      "monthlyIncome": {
+        "next": [
+          {
+            "condition": "{monthlyIncome} <= programs.SNAP.income_limits[{householdSize}]",
+            "next_question": "eligible_for_snap",
+            "program": "SNAP"
+          },
+          {
+            "condition": "{monthlyIncome} <= programs.Medicaid.income_limits[{householdSize}]",
+            "next_question": "elderlyOrDisabled",
+            "program": "Medicaid"
+          }
+        ]
+      },
+      "householdSize": {
+        "next": [
+          {
+            "condition": "{householdSize} > 0",
+            "next_question": "monthlyIncome"
+          }
+        ]
+      },
+      "elderlyOrDisabled": {
+        "next": [
+          {
+            "condition": "{elderlyOrDisabled} == 'Yes'",
+            "next_question": "eligible_for_medicaid",
+            "program": "Medicaid"
+          },
+          {
+            "condition": "{elderlyOrDisabled} == 'No'",
+            "next_question": "publicAssistance"
+          }
+        ]
+      },
+      "publicAssistance": {
+        "next": [
+          {
+            "condition": "{publicAssistance} == 'Yes'",
+            "next_question": "eligible_for_medicaid",
+            "program": "Medicaid"
+          },
+          {
+            "condition": "{publicAssistance} == 'No'",
+            "next_question": "ineligible_all"
+          }
+        ]
+      }
+    }
+  },
+  "outcomes": {
+    "eligible_for_snap": "You may be eligible for SNAP.",
+    "eligible_for_medicaid": "You may be eligible for Medicaid.",
+    "ineligible_all": "Based on your responses, you do not qualify for any programs."
+  }
+}
