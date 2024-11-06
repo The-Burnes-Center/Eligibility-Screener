@@ -6,36 +6,54 @@
       "income_limits": {
         "1": 1632,
         "2": 2215,
-        "3": 2798
-      },
-      "additional_member": 583
+        "3": 2798,
+        "additional_member": 583
+      }
     },
     "Medicaid": {
       "name": "Medicaid",
       "income_limits": {
         "1": 15060,
         "2": 20340,
-        "3": 25620
-      },
-      "additional_member": 5580
+        "3": 25620,
+        "additional_member": 5580
+      }
+    },
+    "WIC": {
+      "name": "Women, Infants, and Children Program",
+      "income_limits": {
+        "1": 1986,
+        "2": 2686,
+        "3": 3386,
+        "additional_member": 700
+      }
+    },
+    "Lifeline": {
+      "name": "Lifeline Assistance Program",
+      "income_limits": {
+        "1": 13500,
+        "2": 18230,
+        "3": 22960,
+        "additional_member": 4730
+      }
     }
   },
   "questions": [
     {
       "id": "q1",
-      "name": "monthlyIncome",
-      "type": "text",
-      "title": "What is your total monthly household income?",
-      "inputType": "number",
-      "programs": ["SNAP", "Medicaid"]
-    },
-    {
-      "id": "q2",
       "name": "householdSize",
       "type": "text",
       "title": "How many people are in your household?",
       "inputType": "number",
-      "programs": ["SNAP", "Medicaid"]
+      "programs": ["SNAP", "Medicaid", "WIC", "Lifeline"]
+    },
+    {
+      "id": "q2",
+      "name": "monthlyIncome",
+      "type": "text",
+      "title": "What is your total monthly household income?",
+      "inputType": "number",
+      "programs": ["SNAP", "Medicaid", "WIC", "Lifeline"]
     },
     {
       "id": "q3",
@@ -43,7 +61,7 @@
       "type": "radiogroup",
       "title": "Is anyone in your household 65 or older or has a disability?",
       "choices": ["Yes", "No"],
-      "programs": ["Medicaid"]
+      "programs": ["Medicaid", "Lifeline"]
     },
     {
       "id": "q4",
@@ -51,26 +69,28 @@
       "type": "radiogroup",
       "title": "Are you currently receiving any other forms of public assistance?",
       "choices": ["Yes", "No"],
-      "programs": ["Medicaid"]
+      "programs": ["Medicaid", "Lifeline"]
+    },
+    {
+      "id": "q5",
+      "name": "pregnantOrChild",
+      "type": "radiogroup",
+      "title": "Are you pregnant or do you have a child under the age of 5?",
+      "choices": ["Yes", "No"],
+      "programs": ["WIC"]
+    },
+    {
+      "id": "q6",
+      "name": "medicaidOrSnap",
+      "type": "radiogroup",
+      "title": "Are you currently receiving Medicaid or SNAP benefits?",
+      "choices": ["Yes", "No"],
+      "programs": ["Lifeline"]
     }
   ],
   "flow": {
-    "start": ["monthlyIncome", "householdSize"],
+    "start": ["householdSize"],
     "logic": {
-      "monthlyIncome": {
-        "next": [
-          {
-            "condition": "{monthlyIncome} <= programs.SNAP.income_limits[{householdSize}]",
-            "next_question": "eligible_for_snap",
-            "program": "SNAP"
-          },
-          {
-            "condition": "{monthlyIncome} <= programs.Medicaid.income_limits[{householdSize}]",
-            "next_question": "elderlyOrDisabled",
-            "program": "Medicaid"
-          }
-        ]
-      },
       "householdSize": {
         "next": [
           {
@@ -79,15 +99,30 @@
           }
         ]
       },
+      "monthlyIncome": {
+        "next": [
+          {
+            "condition": "{monthlyIncome} <= programs.SNAP.income_limits[{householdSize}]",
+            "next_question": "elderlyOrDisabled"
+          },
+          {
+            "condition": "{monthlyIncome} <= programs.Medicaid.income_limits[{householdSize}]",
+            "next_question": "elderlyOrDisabled"
+          },
+          {
+            "condition": "{monthlyIncome} <= programs.WIC.income_limits[{householdSize}]",
+            "next_question": "pregnantOrChild"
+          },
+          {
+            "condition": "{monthlyIncome} <= programs.Lifeline.income_limits[{householdSize}]",
+            "next_question": "medicaidOrSnap"
+          }
+        ]
+      },
       "elderlyOrDisabled": {
         "next": [
           {
-            "condition": "{elderlyOrDisabled} == 'Yes'",
-            "next_question": "eligible_for_medicaid",
-            "program": "Medicaid"
-          },
-          {
-            "condition": "{elderlyOrDisabled} == 'No'",
+            "condition": "{elderlyOrDisabled} == 'Yes' || {elderlyOrDisabled} == 'No'",
             "next_question": "publicAssistance"
           }
         ]
@@ -101,7 +136,33 @@
           },
           {
             "condition": "{publicAssistance} == 'No'",
-            "next_question": "ineligible_all"
+            "next_question": "final_outcome"
+          }
+        ]
+      },
+      "pregnantOrChild": {
+        "next": [
+          {
+            "condition": "{pregnantOrChild} == 'Yes'",
+            "next_question": "eligible_for_wic",
+            "program": "WIC"
+          },
+          {
+            "condition": "{pregnantOrChild} == 'No'",
+            "next_question": "final_outcome"
+          }
+        ]
+      },
+      "medicaidOrSnap": {
+        "next": [
+          {
+            "condition": "{medicaidOrSnap} == 'Yes'",
+            "next_question": "eligible_for_lifeline",
+            "program": "Lifeline"
+          },
+          {
+            "condition": "{medicaidOrSnap} == 'No'",
+            "next_question": "elderlyOrDisabled"
           }
         ]
       }
@@ -110,6 +171,9 @@
   "outcomes": {
     "eligible_for_snap": "You may be eligible for SNAP.",
     "eligible_for_medicaid": "You may be eligible for Medicaid.",
-    "ineligible_all": "Based on your responses, you do not qualify for any programs."
+    "eligible_for_wic": "You may be eligible for WIC.",
+    "eligible_for_lifeline": "You may be eligible for Lifeline.",
+    "ineligible_all": "Based on your responses, you do not qualify for any programs.",
+    "final_outcome": "Final eligibility results will consider all answered program requirements."
   }
 }
