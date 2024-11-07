@@ -4,37 +4,57 @@
     "SNAP": {
       "name": "Supplemental Nutrition Assistance Program",
       "income_limits": {
-        "1": 1632,
-        "2": 2215,
-        "3": 2798,
-        "additional_member": 583
+        "1": 2510,
+        "2": 3407,
+        "3": 4303,
+        "4": 5200,
+        "5": 6097,
+        "6": 6993,
+        "7": 7890,
+        "8": 8787,
+        "additional_member": 897
       }
     },
     "Medicaid": {
       "name": "Medicaid",
       "income_limits": {
-        "1": 15060,
-        "2": 20340,
-        "3": 25620,
-        "additional_member": 5580
+        "1": 1255,
+        "2": 1695,
+        "3": 2135,
+        "4": 2575,
+        "5": 3015,
+        "6": 3455,
+        "7": 3895,
+        "8": 4335,
+        "additional_member": 465
       }
     },
     "WIC": {
       "name": "Women, Infants, and Children Program",
       "income_limits": {
-        "1": 1986,
-        "2": 2686,
-        "3": 3386,
-        "additional_member": 700
+        "1": 2322,
+        "2": 3152,
+        "3": 3981,
+        "4": 4810,
+        "5": 5640,
+        "6": 6469,
+        "7": 7299,
+        "8": 8128,
+        "additional_member": 830
       }
     },
     "Lifeline": {
       "name": "Lifeline Assistance Program",
       "income_limits": {
-        "1": 13500,
-        "2": 18230,
-        "3": 22960,
-        "additional_member": 4730
+        "1": 1694,
+        "2": 2299,
+        "3": 2905,
+        "4": 3510,
+        "5": 4116,
+        "6": 4721,
+        "7": 5327,
+        "8": 5932,
+        "additional_member": 605
       }
     }
   },
