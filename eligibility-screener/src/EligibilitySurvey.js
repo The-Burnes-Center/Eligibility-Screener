@@ -25,59 +25,58 @@ function EligibilityScreen() {
     }
 
     newSurvey.onValueChanged.add((sender, options) => {
-        const answers = sender.data;
-        const currentQuestionName = options.name;
-        const logic = eligibilityConfig.flow.logic[currentQuestionName];
-      
-        if (logic) {
-          let movedToNext = false;
-          logic.next.forEach(conditionObj => {
-            const isEligible = evaluateCondition(conditionObj.condition, answers, eligibilityConfig.programs);
-            console.log("Evaluating condition:", conditionObj.condition, "with values:", answers, "Result:", isEligible);
-      
-            // Check if current question has program mappings
-            const question = eligibilityConfig.questions.find(q => q.name === currentQuestionName);
-            if (question && question.programs) {
-              question.programs.forEach(program => {
-                // Update eligibility status for each related program
-                setEligibilityStatus(prevStatus => {
-                  const updatedStatus = {
-                    ...prevStatus,
-                    [program]: isEligible ? true : prevStatus[program] // Only set to true if eligible
-                  };
-                  console.log(`Updated eligibility for ${program}: ${updatedStatus[program]}`);
-                  return updatedStatus;
-                });
+      const answers = sender.data;
+      const currentQuestionName = options.name;
+      const logic = eligibilityConfig.flow.logic[currentQuestionName];
+
+      if (logic) {
+        let movedToNext = false;
+        logic.next.forEach(conditionObj => {
+          const isEligible = evaluateCondition(conditionObj.condition, answers, eligibilityConfig.programs);
+          console.log("Evaluating condition:", conditionObj.condition, "with values:", answers, "Result:", isEligible);
+
+          // Check if current question has program mappings
+          const question = eligibilityConfig.questions.find(q => q.name === currentQuestionName);
+          if (question && question.programs) {
+            question.programs.forEach(program => {
+              // Update eligibility status for each related program
+              setEligibilityStatus(prevStatus => {
+                const updatedStatus = {
+                  ...prevStatus,
+                  [program]: prevStatus[program] || isEligible // Use logical OR to update eligibility
+                };
+                console.log(`Updated eligibility for ${program}: ${updatedStatus[program]}`);
+                return updatedStatus;
               });
-            }
-      
-            // Move to the next question if eligible
-            if (isEligible && !movedToNext) {
-              const nextQuestion = newSurvey.getQuestionByName(conditionObj.next_question);
-              if (nextQuestion) {
-                nextQuestion.visible = true;
-                movedToNext = true;
-                newSurvey.render();
-              } else if (conditionObj.next_question.startsWith("eligible_for")) {
-                const program = conditionObj.program.toLowerCase();
-                setResults(eligibilityConfig.outcomes[`eligible_for_${program}`]);
-                newSurvey.completeLastPage();
-                movedToNext = true;
-              } else if (conditionObj.next_question === "ineligible_all") {
-                setResults(eligibilityConfig.outcomes.ineligible_all);
-                newSurvey.completeLastPage();
-                movedToNext = true;
-              }
-            }
-          });
-      
-          // Manually advance to the next page if needed
-          if (!movedToNext) {
-            newSurvey.nextPage();
+            });
           }
+
+          // Move to the next question if eligible
+          if (isEligible && !movedToNext) {
+            const nextQuestion = newSurvey.getQuestionByName(conditionObj.next_question);
+            if (nextQuestion) {
+              nextQuestion.visible = true;
+              movedToNext = true;
+              newSurvey.render();
+            } else if (conditionObj.next_question.startsWith("eligible_for")) {
+              const program = conditionObj.program.toLowerCase();
+              setResults(eligibilityConfig.outcomes[`eligible_for_${program}`]);
+              newSurvey.completeLastPage();
+              movedToNext = true;
+            } else if (conditionObj.next_question === "ineligible_all") {
+              setResults(eligibilityConfig.outcomes.ineligible_all);
+              newSurvey.completeLastPage();
+              movedToNext = true;
+            }
+          }
+        });
+
+        // Manually advance to the next page if needed
+        if (!movedToNext) {
+          newSurvey.nextPage();
         }
-      });      
-      
+      }
+    });
 
     setSurvey(newSurvey);
   }, []);
@@ -111,7 +110,6 @@ function EligibilityScreen() {
       return false;
     }
   }  
-  
 
   return (
     <div id="surveyContainer">
