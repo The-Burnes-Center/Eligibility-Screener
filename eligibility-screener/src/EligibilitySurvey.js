@@ -48,6 +48,7 @@ function EligibilityScreen() {
       const questionIndex = parseInt(currentQuestionName.split("_")[1], 10);
       const flowItem = eligibilityData.question_flow[questionIndex];
       const question = eligibilityData.questions.find(q => q.question === flowItem.question);
+      console.log('answers:', answers);
 
       // Initialize a temporary eligibility status to recompute eligibility each time
       const tempEligibilityStatus = { ...eligibilityStatus };
@@ -56,6 +57,7 @@ function EligibilityScreen() {
         question.criteria_impact.forEach(impact => {
           const program = impact.program_id;
           const criteria = eligibilityData.criteria.find(c => c.id === impact.criteria_id);
+          console.log('Criteria:', criteria);
 
           if (criteria && tempEligibilityStatus[program]) {
             let ineligible = false;
@@ -85,7 +87,7 @@ function EligibilityScreen() {
         setEligibilityStatus(tempEligibilityStatus);
       }
 
-      console.log('Eligibility status overall:', tempEligibilityStatus);
+      console.log('Eligibility status:', tempEligibilityStatus);
 
       // Show the next question in the flow, if any
       const nextQuestionIndex = questionIndex + 1;
@@ -101,6 +103,8 @@ function EligibilityScreen() {
 
     setSurvey(surveyModel);
   }, [eligibilityStatus]);
+  console.log('Eligibility status overal:', eligibilityStatus);
+
 
   return (
     <div id="surveyContainer">
