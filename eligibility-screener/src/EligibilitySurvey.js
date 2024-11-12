@@ -2,114 +2,105 @@ import React, { useState, useEffect } from "react";
 import { Model } from "survey-core";
 import { Survey } from "survey-react-ui";
 import "survey-core/defaultV2.min.css";
-import eligibilityConfig from './config/eligibility_config.json';
+import eligibilityData from './config/flow.json';
 
 function EligibilityScreen() {
   const [survey, setSurvey] = useState(null);
   const [results, setResults] = useState(null);
   const [eligibilityStatus, setEligibilityStatus] = useState(
-    Object.fromEntries(Object.keys(eligibilityConfig.programs).map(program => [program, true]))
+    Object.fromEntries(eligibilityData.programs.map(program => [program.id, true]))
   );
 
   useEffect(() => {
-    const newSurvey = new Model({
-      title: eligibilityConfig.title,
-      pages: [{ elements: eligibilityConfig.questions.map(q => ({ ...q, visible: false })) }]
+    // Initialize SurveyJS model with dynamic question flow
+    const surveyModel = new Model({
+      title: "Eligibility Screener",
+      elements: []
     });
 
-    // Set the initial question visible
-    const initialQuestionName = eligibilityConfig.flow.start[0];
-    const initialQuestion = newSurvey.getQuestionByName(initialQuestionName);
-    if (initialQuestion) {
-      initialQuestion.visible = true;
+    // Setup questions based on the flow in the JSON
+    function setupQuestionFlow() {
+      eligibilityData.question_flow.forEach((flowItem, index) => {
+        const question = eligibilityData.questions.find(q => q.question === flowItem.question);
+        if (question) {
+          const surveyElement = {
+            name: `q_${index}`,
+            title: question.question,
+            isRequired: true,
+            visible: index === 0, // Only the first question is visible initially
+            type: question.input_type === "radio" ? "radiogroup" : "text",
+            choices: question.input_type === "radio" ? ["Yes", "No"] : undefined,
+            inputType: question.input_type === "text" ? "number" : undefined
+          };
+          surveyModel.addNewPage("page1").addNewQuestion(surveyElement.type, surveyElement.name);
+          surveyModel.getQuestionByName(surveyElement.name).fromJSON(surveyElement);
+        }
+      });
     }
 
-    newSurvey.onValueChanged.add((sender, options) => {
+    // Initialize the question flow
+    setupQuestionFlow();
+
+    // Handle value change for each question and update eligibility
+    surveyModel.onValueChanged.add((sender, options) => {
       const answers = sender.data;
       const currentQuestionName = options.name;
-      const logic = eligibilityConfig.flow.logic[currentQuestionName];
+      const questionIndex = parseInt(currentQuestionName.split("_")[1], 10);
+      const flowItem = eligibilityData.question_flow[questionIndex];
+      const question = eligibilityData.questions.find(q => q.question === flowItem.question);
 
-      if (logic) {
-        let movedToNext = false;
-        logic.next.forEach(conditionObj => {
-          const isEligible = evaluateCondition(conditionObj.condition, answers, eligibilityConfig.programs);
-          console.log("Evaluating condition:", conditionObj.condition, "with values:", answers, "Result:", isEligible);
+      // Initialize a temporary eligibility status to recompute eligibility each time
+      const tempEligibilityStatus = { ...eligibilityStatus };
 
-          // Check if current question has program mappings
-          const question = eligibilityConfig.questions.find(q => q.name === currentQuestionName);
-          if (question && question.programs) {
-            question.programs.forEach(program => {
-              // Update eligibility status for each related program
-              setEligibilityStatus(prevStatus => {
-                const updatedStatus = {
-                  ...prevStatus,
-                  [program]: prevStatus[program] || isEligible // Use logical OR to update eligibility
-                };
-                console.log(`Updated eligibility for ${program}: ${updatedStatus[program]}`);
-                return updatedStatus;
-              });
-            });
-          }
+      if (question) {
+        question.criteria_impact.forEach(impact => {
+          const program = impact.program_id;
+          const criteria = eligibilityData.criteria.find(c => c.id === impact.criteria_id);
 
-          // Move to the next question if eligible
-          if (isEligible && !movedToNext) {
-            const nextQuestion = newSurvey.getQuestionByName(conditionObj.next_question);
-            if (nextQuestion) {
-              nextQuestion.visible = true;
-              movedToNext = true;
-              newSurvey.render();
-            } else if (conditionObj.next_question.startsWith("eligible_for")) {
-              const program = conditionObj.program.toLowerCase();
-              setResults(eligibilityConfig.outcomes[`eligible_for_${program}`]);
-              newSurvey.completeLastPage();
-              movedToNext = true;
-            } else if (conditionObj.next_question === "ineligible_all") {
-              setResults(eligibilityConfig.outcomes.ineligible_all);
-              newSurvey.completeLastPage();
-              movedToNext = true;
+          if (criteria && tempEligibilityStatus[program]) {
+            let ineligible = false;
+
+            if (criteria.type === "number") {
+              const threshold = criteria.threshold_by_household_size
+                ? criteria.threshold_by_household_size[answers.householdSize] || 0
+                : criteria.threshold;
+              ineligible = answers[currentQuestionName] > threshold;
+            } else if (criteria.type === "option") {
+              // Adjusted comparison for option criteria
+              const requiredOption = criteria.options[0];
+              if (answers[currentQuestionName] !== requiredOption) {
+                ineligible = true;
+              }
+            }
+
+            if (ineligible) {
+              tempEligibilityStatus[program] = false;
             }
           }
         });
+      }
 
-        // Manually advance to the next page if needed
-        if (!movedToNext) {
-          newSurvey.nextPage();
-        }
+      // Only update eligibility status if it differs from current eligibility
+      if (JSON.stringify(tempEligibilityStatus) !== JSON.stringify(eligibilityStatus)) {
+        setEligibilityStatus(tempEligibilityStatus);
+      }
+
+      console.log('Eligibility status overall:', tempEligibilityStatus);
+
+      // Show the next question in the flow, if any
+      const nextQuestionIndex = questionIndex + 1;
+      if (nextQuestionIndex < eligibilityData.question_flow.length) {
+        const nextQuestionName = `q_${nextQuestionIndex}`;
+        const nextQuestion = surveyModel.getQuestionByName(nextQuestionName);
+        if (nextQuestion) nextQuestion.visible = true;
+      } else {
+        sender.completeLastPage();
+        setResults("Survey Complete. Please review your eligibility.");
       }
     });
 
-    setSurvey(newSurvey);
-  }, []);
-
-  function evaluateCondition(condition, answers, programs) {
-    const conditionWithValues = condition.replace(/{(.*?)}/g, (_, varName) => {
-      const [mainKey, subKey, index] = varName.split(".");
-  
-      // Handle complex variables like `programs.Lifeline.income_limits[householdSize]`
-      if (mainKey === "programs" && subKey && index) {
-        const householdSize = answers.householdSize;
-        const limit = programs[subKey]?.income_limits[householdSize] || 0;
-        console.log(`Accessing income limit for ${subKey} with householdSize ${householdSize}:`, limit);
-        return limit;
-      }
-  
-      // Handle simple variables like `monthlyIncome` and `householdSize`
-      const value = answers[varName];
-      console.log(`Replacing variable ${varName} with value:`, value);
-      return typeof value === "string" ? `"${value}"` : value || 0;
-    });
-  
-    console.log("Evaluating condition string:", conditionWithValues);
-  
-    try {
-      const result = eval(conditionWithValues);
-      console.log("Condition result:", result);
-      return result;
-    } catch (error) {
-      console.error("Condition evaluation error:", error);
-      return false;
-    }
-  }  
+    setSurvey(surveyModel);
+  }, [eligibilityStatus]);
 
   return (
     <div id="surveyContainer">

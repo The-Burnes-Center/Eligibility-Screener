@@ -101,5 +101,27 @@
         }
       ]
     }
+  ],
+  "question_flow": [
+    {
+      "question": "What is your annual income?",
+      "programs_impacted": ["snap", "lifeline"],
+      "criteria_impacted": ["income_level_snap", "income_level_lifeline"]
+    },
+    {
+      "question": "Do you have a Social Security Number (SSN)?",
+      "programs_impacted": ["snap", "lifeline"],
+      "criteria_impacted": ["ssn_required"]
+    },
+    {
+      "question": "What is your household size?",
+      "programs_impacted": ["snap"],
+      "criteria_impacted": ["income_level_snap"]
+    },
+    {
+      "question": "Are you a resident of Massachusetts?",
+      "programs_impacted": ["snap"],
+      "criteria_impacted": ["state_residency"]
+    }
   ]
 }
