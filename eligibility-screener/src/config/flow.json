@@ -37,7 +37,7 @@
       "id": "ssn_required",
       "type": "option",
       "category": "requirements",
-      "options": ["SSN"],
+      "options": ["Yes"],
       "description": "Applicant must have an SSN for eligibility."
     },
     {
