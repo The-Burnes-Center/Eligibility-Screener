@@ -44,7 +44,7 @@
       "id": "state_residency",
       "type": "option",
       "category": "requirements",
-      "options": ["Massachusetts Residency"],
+      "options": ["Yes"],
       "description": "Applicant must be a resident of Massachusetts for SNAP eligibility."
     }
   ],
