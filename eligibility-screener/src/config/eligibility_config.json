@@ -37,14 +37,14 @@
       "id": "ssn_required",
       "type": "option",
       "category": "requirements",
-      "options": ["SSN"],
+      "options": ["Yes"],
       "description": "Applicant must have an SSN for eligibility."
     },
     {
       "id": "state_residency",
       "type": "option",
       "category": "requirements",
-      "options": ["Massachusetts Residency"],
+      "options": ["Yes"],
       "description": "Applicant must be a resident of Massachusetts for SNAP eligibility."
     }
   ],

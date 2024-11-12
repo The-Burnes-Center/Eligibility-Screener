@@ -14,7 +14,7 @@ function EligibilityScreen() {
   useEffect(() => {
     // Initialize SurveyJS model with dynamic question flow
     const surveyModel = new Model({
-      title: "Eligibility Screener",
+      title: "Federal Benefit Eligibility Screener",
       elements: []
     });
 
@@ -48,6 +48,7 @@ function EligibilityScreen() {
       const questionIndex = parseInt(currentQuestionName.split("_")[1], 10);
       const flowItem = eligibilityData.question_flow[questionIndex];
       const question = eligibilityData.questions.find(q => q.question === flowItem.question);
+      console.log('answers:', answers);
 
       // Initialize a temporary eligibility status to recompute eligibility each time
       const tempEligibilityStatus = { ...eligibilityStatus };
@@ -56,24 +57,16 @@ function EligibilityScreen() {
         question.criteria_impact.forEach(impact => {
           const program = impact.program_id;
           const criteria = eligibilityData.criteria.find(c => c.id === impact.criteria_id);
+          console.log('Criteria:', criteria);
 
           if (criteria && tempEligibilityStatus[program]) {
             let ineligible = false;
 
             if (criteria.type === "number") {
-              // Dynamically determine the threshold based on household size if applicable
-              let threshold;
-              if (criteria.threshold_by_household_size && answers.householdSize) {
-                threshold = criteria.threshold_by_household_size[answers.householdSize];
-              } else {
-                threshold = criteria.threshold;
-              }
-
-              if (typeof threshold === "number") {
-                ineligible = answers[currentQuestionName] > threshold;
-              } else {
-                console.warn(`Threshold not defined for household size: ${answers.householdSize}`);
-              }
+              const threshold = criteria.threshold_by_household_size
+                ? criteria.threshold_by_household_size[answers.householdSize] || 0
+                : criteria.threshold;
+              ineligible = answers[currentQuestionName] > threshold;
             } else if (criteria.type === "option") {
               // Adjusted comparison for option criteria
               const requiredOption = criteria.options[0];
@@ -94,7 +87,7 @@ function EligibilityScreen() {
         setEligibilityStatus(tempEligibilityStatus);
       }
 
-      console.log('Eligibility status overall:', tempEligibilityStatus);
+      console.log('Eligibility status:', tempEligibilityStatus);
 
       // Show the next question in the flow, if any
       const nextQuestionIndex = questionIndex + 1;
@@ -110,6 +103,8 @@ function EligibilityScreen() {
 
     setSurvey(surveyModel);
   }, [eligibilityStatus]);
+  console.log('Eligibility status overal:', eligibilityStatus);
+
 
   return (
     <div id="surveyContainer">

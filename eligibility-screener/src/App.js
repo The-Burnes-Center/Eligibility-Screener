@@ -5,7 +5,7 @@ console.log("Eligibility Survey component 2:", EligibilitySurvey);
 function App() {
   return (
     <div>
-      <h1>Eligibility Screener</h1>
+      <h1></h1>
       <EligibilitySurvey />
     </div>
   );
