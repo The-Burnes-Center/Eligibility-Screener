@@ -3,12 +3,31 @@
     {
       "id": "snap",
       "name": "SNAP",
-      "criteria_ids": ["income_level_snap", "ssn_required", "state_residency"]
+      "criteria_ids": [
+        "income_level_snap",
+        "houshold_size",
+        "ssn_required",
+        "state_residency"
+      ]
     },
     {
       "id": "lifeline",
       "name": "Lifeline",
       "criteria_ids": ["income_level_lifeline", "ssn_required"]
+    },
+    {
+      "id": "msp",
+      "name": "Massachusetts Senior Program",
+      "criteria_ids": ["income_level_msp", "age_requirement"]
+    },
+    {
+      "id": "wic",
+      "name": "WIC",
+      "criteria_ids": [
+        "income_level_wic",
+        "pregnancy_or_child_requirement",
+        "state_residency"
+      ]
     }
   ],
   "criteria": [
@@ -34,6 +53,27 @@
       "description": "Income must be below or equal to $15,000 annually for Lifeline, regardless of household size."
     },
     {
+      "id": "income_level_msp",
+      "type": "number",
+      "category": "income_level",
+      "threshold": 18000,
+      "comparison": "<=",
+      "description": "Income must be below or equal to $18,000 annually for MSP."
+    },
+    {
+      "id": "income_level_wic",
+      "type": "number",
+      "category": "income_level",
+      "threshold_by_household_size": {
+        "1": 21000,
+        "2": 28000,
+        "3": 35000,
+        "4": 42000
+      },
+      "comparison": "<=",
+      "description": "Income must be below or equal to the threshold based on household size for WIC."
+    },
+    {
       "id": "ssn_required",
       "type": "option",
       "category": "requirements",
@@ -45,7 +85,22 @@
       "type": "option",
       "category": "requirements",
       "options": ["Yes"],
-      "description": "Applicant must be a resident of Massachusetts for SNAP eligibility."
+      "description": "Applicant must be a resident of Massachusetts for SNAP and WIC eligibility."
+    },
+    {
+      "id": "age_requirement",
+      "type": "number",
+      "category": "age",
+      "threshold": 65,
+      "comparison": ">=",
+      "description": "Applicant must be at least 65 years old to qualify for MSP."
+    },
+    {
+      "id": "pregnancy_or_child_requirement",
+      "type": "option",
+      "category": "requirements",
+      "options": ["Yes"],
+      "description": "Applicant must be pregnant or have a child under 5 years old for WIC eligibility."
     }
   ],
   "questions": [
@@ -61,6 +116,14 @@
         {
           "program_id": "lifeline",
           "criteria_id": "income_level_lifeline"
+        },
+        {
+          "program_id": "msp",
+          "criteria_id": "income_level_msp"
+        },
+        {
+          "program_id": "wic",
+          "criteria_id": "income_level_wic"
         }
       ]
     },
@@ -72,6 +135,10 @@
         {
           "program_id": "snap",
           "criteria_id": "income_level_snap"
+        },
+        {
+          "program_id": "wic",
+          "criteria_id": "income_level_wic"
         }
       ]
     },
@@ -98,6 +165,32 @@
         {
           "program_id": "snap",
           "criteria_id": "state_residency"
+        },
+        {
+          "program_id": "wic",
+          "criteria_id": "state_residency"
+        }
+      ]
+    },
+    {
+      "question": "What is your age?",
+      "type": "number",
+      "input_type": "text",
+      "criteria_impact": [
+        {
+          "program_id": "msp",
+          "criteria_id": "age_requirement"
+        }
+      ]
+    },
+    {
+      "question": "Are you pregnant or do you have a child under 5 years old?",
+      "type": "boolean",
+      "input_type": "radio",
+      "criteria_impact": [
+        {
+          "program_id": "wic",
+          "criteria_id": "pregnancy_or_child_requirement"
         }
       ]
     }
