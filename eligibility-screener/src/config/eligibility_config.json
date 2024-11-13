@@ -3,12 +3,7 @@
     {
       "id": "snap",
       "name": "SNAP",
-      "criteria_ids": [
-        "income_level_snap",
-        "houshold_size",
-        "ssn_required",
-        "state_residency"
-      ]
+      "criteria_ids": ["income_level_snap", "ssn_required", "state_residency"]
     },
     {
       "id": "lifeline",
