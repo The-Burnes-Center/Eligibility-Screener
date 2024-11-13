@@ -16,7 +16,6 @@ const EligibilityScreener = () => {
     if (!criterion) return true;
 
     const thresholdKey = Object.keys(criterion).find(key => key.startsWith("threshold_by_"));
-
     if (thresholdKey) {
       const variableName = thresholdKey.replace("threshold_by_", "");
       const variableValue = userResponses.current[variableName];
@@ -37,11 +36,20 @@ const EligibilityScreener = () => {
     return true;
   }, []);
 
+  // Sort questions by program impact
   const sortedQuestions = useMemo(() => {
     return questions
       .map(question => {
-        const programImpact = new Set((question.criteria_impact || []).map(ci => ci.program_id)).size;
-        const criteriaImpactCount = (question.criteria_impact || []).length;
+        // Ensure criteria_impact exists and is not empty
+        const programImpact = Array.isArray(question.criteria_impact) && question.criteria_impact.length > 0
+          ? new Set(question.criteria_impact.map(ci => ci.program_id)).size
+          : 0;
+        
+        const criteriaImpactCount = Array.isArray(question.criteria_impact) ? question.criteria_impact.length : 0;
+
+        // Log for debugging: Check criteria_impact length
+        console.log(`Question: ${question.question}, Criteria Impact Count:`, criteriaImpactCount);
+
         return { ...question, programImpact, criteriaImpactCount };
       })
       .sort((a, b) => {
@@ -50,16 +58,28 @@ const EligibilityScreener = () => {
       });
   }, [questions]);
 
-  // Define survey questions without any `visibleIf` conditions for now
+  // Define survey questions
   const surveyQuestions = useMemo(() => {
-    return sortedQuestions.map(question => ({
-      name: question.question,
-      title: question.question,
-      type: question.type === "boolean" ? "radiogroup" : question.type,
-      isRequired: true,
-      choices: question.input_type === "radio" ? ["Yes", "No"] : undefined,
-      inputType: question.input_type === "text" && question.type === "number" ? "number" : undefined,
-    }));
+    return sortedQuestions.map(question => {
+      // Ensure that criteria_impact is defined and has at least one entry
+      const programImpact = Array.isArray(question.criteria_impact) && question.criteria_impact.length > 0
+        ? new Set(question.criteria_impact.map(ci => ci.program_id)).size
+        : 0;
+
+      const criteriaImpactCount = Array.isArray(question.criteria_impact) ? question.criteria_impact.length : 0;
+
+      // Log for debugging: Check if criteria_impact exists and has items
+      console.log(`Question: ${question.question}, Criteria Impact Array:`, question.criteria_impact);
+
+      return {
+        name: question.question,
+        title: question.question,
+        type: question.type === "boolean" ? "radiogroup" : question.type,
+        isRequired: true,
+        choices: question.input_type === "radio" ? ["Yes", "No"] : undefined,
+        inputType: question.input_type === "text" && question.type === "number" ? "number" : undefined,
+      };
+    });
   }, [sortedQuestions]);
 
   useEffect(() => {
@@ -94,8 +114,29 @@ const EligibilityScreener = () => {
         }
       });
 
+      // Update eligible programs
       console.log("Updated eligible programs:", Array.from(updatedEligiblePrograms));
-      setEligiblePrograms(updatedEligiblePrograms); // Update eligible programs
+      setEligiblePrograms(updatedEligiblePrograms);
+
+      // After each answer, show the next question based on eligibility, but keep asking all questions
+      const nextQuestionIndex = surveyQuestions.findIndex(q => q.name === name) + 1;
+
+      // Ensure nextQuestionIndex is within valid bounds
+      if (nextQuestionIndex < surveyQuestions.length) {
+        const nextQuestion = surveyQuestions[nextQuestionIndex];
+
+        // Check if the next question is valid and eligible
+        if (nextQuestion) {
+          // Only show the next question if it's part of the current eligible programs
+          const nextQuestionEligible = eligiblePrograms.has(nextQuestion.criteria_impact?.[0]?.program_id);
+          if (nextQuestionEligible) {
+            survey.showQuestion(survey.questions[nextQuestionIndex]);
+          }
+        }
+      } else {
+        // Handle the case where no more questions are left
+        console.log('No more questions to show');
+      }
     });
 
     setSurveyModel(survey);
