@@ -8,12 +8,10 @@ const EligibilityScreener = () => {
   const { programs = [], criteria = [], questions = [] } = surveyData || {};
 
   const userResponses = useRef({});
-  const [eligiblePrograms, setEligiblePrograms] = useState(
-    new Set(programs.map((p) => p.id))
-  );
+  const [eligiblePrograms, setEligiblePrograms] = useState(new Set()); // Start with an empty set
   const [surveyCompleted, setSurveyCompleted] = useState(false);
   const [surveyModel, setSurveyModel] = useState(null);
-  const [evaluationPending, setEvaluationPending] = useState(false); // Tracks pending evaluations
+  const [evaluationPending, setEvaluationPending] = useState(false);
 
   const meetsCriterion = useCallback((criterion, answer, householdSize) => {
     if (!criterion) return true;
@@ -37,14 +35,7 @@ const EligibilityScreener = () => {
   const evaluateEligibility = useCallback(() => {
     if (!surveyModel) {
       console.warn("Survey model not initialized. Deferring evaluation.");
-      setEvaluationPending(true); // Mark evaluation as pending
-      return;
-    }
-
-    console.log("Starting eligibility evaluation...");
-
-    if (surveyCompleted) {
-      console.warn("Survey already completed. Skipping evaluation.");
+      setEvaluationPending(true);
       return;
     }
 
@@ -87,31 +78,12 @@ const EligibilityScreener = () => {
     const updatedEligiblePrograms = new Set(
       Object.keys(programEligibilityMap).filter((programId) => programEligibilityMap[programId])
     );
-    console.log("Updated eligible programs:", updatedEligiblePrograms);
+    console.log("Updated eligible programs after evaluation:", updatedEligiblePrograms);
 
-    if (updatedEligiblePrograms.size === 0) {
-      console.log("No eligible programs remaining. Ending survey.");
-      if (surveyModel) {
-        surveyModel.completedHtml = "<h3>Survey Complete</h3><p>You are not eligible for any programs.</p>";
-
-        // Hide all questions
-        const surveyQuestions = surveyModel.getAllQuestions();
-        surveyQuestions.forEach((q) => (q.visible = false));
-        console.log("Survey questions hidden:", surveyQuestions);
-
-        surveyModel.doComplete(); // End the survey
-        setSurveyCompleted(true);
-      }
-      return;
-    }
-    console.log("Updated eligible programs 2:", updatedEligiblePrograms);
-
-    setEligiblePrograms(updatedEligiblePrograms);
-    console.log("Eligible programs after evaluation:", updatedEligiblePrograms);
-  }, [programs, criteria, questions, meetsCriterion, surveyModel, surveyCompleted]);
+    setEligiblePrograms(updatedEligiblePrograms); // Update the state with eligible programs
+  }, [programs, criteria, questions, meetsCriterion, surveyModel]);
 
   const initializeSurveyModel = useCallback(() => {
-    console.log("Initializing survey model...");
     const surveyQuestions = questions.map((question) => ({
       name: question.question,
       title: question.question,
@@ -127,8 +99,6 @@ const EligibilityScreener = () => {
       showQuestionNumbers: "off",
     });
 
-    survey.completedHtml = "<h3>Survey Complete</h3><p>Your eligible programs will be displayed here.</p>";
-
     survey.onValueChanged.add((sender, options) => {
       if (surveyCompleted) {
         console.log("Survey already completed. Ignoring value change.");
@@ -143,6 +113,7 @@ const EligibilityScreener = () => {
 
     survey.onComplete.add(() => {
       console.log("Survey complete. Final user responses:", { ...userResponses.current });
+      setSurveyCompleted(true); // Only set completion after eligibility evaluation
     });
 
     return survey;
