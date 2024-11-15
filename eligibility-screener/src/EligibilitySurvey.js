@@ -74,16 +74,25 @@ const EligibilityScreener = () => {
     const updatedEligiblePrograms = new Set(
       Object.keys(programEligibilityMap).filter((programId) => programEligibilityMap[programId])
     );
+    console.log("Updated eligible programs:", updatedEligiblePrograms);
 
     if (updatedEligiblePrograms.size === 0) {
       console.log("No eligible programs remaining. Ending survey.");
+      console.log("Survey model:", surveyModel);
       if (surveyModel) {
         surveyModel.completedHtml = "<h3>Survey Complete</h3><p>You are not eligible for any programs.</p>";
+
+        // Set all questions' visibility to false
+        const surveyQuestions = surveyModel.getAllQuestions();
+        surveyQuestions.forEach((q) => (q.visible = false));
+        console.log("Survey questions hidden:", surveyQuestions);
+
         surveyModel.doComplete(); // Transition survey to "complete" state
         setSurveyCompleted(true); // Prevent further updates
       }
       return;
     }
+    console.log('outside survey', surveyModel);
 
     if (
       updatedEligiblePrograms.size !== eligiblePrograms.size ||
