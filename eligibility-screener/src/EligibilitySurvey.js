@@ -6,7 +6,6 @@ import "survey-core/defaultV2.min.css";
 
 const EligibilityScreener = () => {
   const { programs = [], criteria = [], questions = [] } = surveyData || {};
-  console.log(surveyData); // Confirm the structure
 
   const [surveyModel, setSurveyModel] = useState(null);
   const [eligiblePrograms, setEligiblePrograms] = useState(
@@ -73,29 +72,43 @@ const EligibilityScreener = () => {
       Object.keys(programEligibilityMap).filter((programId) => programEligibilityMap[programId])
     );
 
+    if (updatedEligiblePrograms.size === 0) {
+      console.log("No eligible programs remaining. Ending survey.");
+      if (surveyModel) {
+        surveyModel.completedHtml = "<h3>Survey Complete</h3><p>You are not eligible for any programs.</p>";
+        surveyModel.complete(); // End the survey programmatically
+      }
+      return; // Exit to avoid further processing
+    }
+
     if (
       updatedEligiblePrograms.size !== eligiblePrograms.size ||
       [...updatedEligiblePrograms].some((p) => !eligiblePrograms.has(p))
     ) {
       setEligiblePrograms(updatedEligiblePrograms);
+
+      // Dynamically update question visibility
+      if (surveyModel) {
+        const surveyQuestions = surveyModel.getAllQuestions();
+        surveyQuestions.forEach((question) => {
+          const relevantPrograms = question.criteria_impact?.map((ci) => ci.program_id) || [];
+          question.visible = relevantPrograms.some((programId) => updatedEligiblePrograms.has(programId));
+        });
+      }
     }
+
     console.log("Eligible programs:", updatedEligiblePrograms);
-  }, [programs, criteria, questions, eligiblePrograms, meetsCriterion]);
+  }, [programs, criteria, questions, eligiblePrograms, meetsCriterion, surveyModel]);
 
   const initializeSurveyModel = useCallback(() => {
-    const surveyQuestions = questions
-      .filter((question) =>
-        question.criteria_impact.some((impact) => eligiblePrograms.has(impact.program_id))
-      )
-      .map((question) => ({
-        name: question.question,
-        title: question.question,
-        type: question.type === "boolean" ? "radiogroup" : question.type === "number" ? "text" : "dropdown",
-        isRequired: true,
-        choices: question.input_type === "radio" ? ["Yes", "No"] : question.choices || undefined,
-        inputType: question.type === "number" ? "number" : undefined,
-      }));
-    console.log(surveyQuestions); // Confirm the structure
+    const surveyQuestions = questions.map((question) => ({
+      name: question.question,
+      title: question.question,
+      type: question.type === "boolean" ? "radiogroup" : question.type === "number" ? "text" : "dropdown",
+      isRequired: true,
+      choices: question.input_type === "radio" ? ["Yes", "No"] : question.choices || undefined,
+      inputType: question.type === "number" ? "number" : undefined,
+    }));
 
     const survey = new SurveyCore.Model({
       questions: surveyQuestions,
@@ -103,33 +116,27 @@ const EligibilityScreener = () => {
       showQuestionNumbers: "off",
     });
 
+    survey.completedHtml = "<h3>Survey Complete</h3><p>Your eligible programs will be displayed here.</p>";
     return survey;
-  }, [questions, eligiblePrograms]);
+  }, [questions]);
 
-  // Initialize survey model once
   useEffect(() => {
-    const survey = initializeSurveyModel();
+    if (!surveyModel) {
+      const survey = initializeSurveyModel();
 
-    survey.onValueChanged.add((sender, options) => {
-      const { name, value } = options;
-      userResponses.current[name] = value;
-      evaluateEligibility(); // Only evaluate eligibility here
-    });
+      survey.onValueChanged.add((sender, options) => {
+        const { name, value } = options;
+        userResponses.current[name] = value;
+        evaluateEligibility(); // Evaluate eligibility after each question
+      });
 
-    survey.onComplete.add(() => {
-      console.log("Survey complete. Final user responses:", { ...userResponses.current });
-    });
+      survey.onComplete.add(() => {
+        console.log("Survey complete. Final user responses:", { ...userResponses.current });
+      });
 
-    setSurveyModel(survey);
-  }, [initializeSurveyModel, evaluateEligibility]);
-
-  // Update survey model dynamically when eligible programs change
-  useEffect(() => {
-    if (surveyModel) {
-      const updatedSurvey = initializeSurveyModel();
-      setSurveyModel(updatedSurvey);
+      setSurveyModel(survey);
     }
-  }, [eligiblePrograms, initializeSurveyModel]);
+  }, [initializeSurveyModel, evaluateEligibility, surveyModel]);
 
   return (
     <div>
