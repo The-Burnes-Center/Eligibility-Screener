@@ -11,6 +11,7 @@ const EligibilityScreener = () => {
   const [eligiblePrograms, setEligiblePrograms] = useState(
     new Set(programs.map((p) => p.id))
   );
+  const [surveyCompleted, setSurveyCompleted] = useState(false); // Track if the survey has ended
   const userResponses = useRef({});
 
   const meetsCriterion = useCallback((criterion, answer, householdSize) => {
@@ -33,6 +34,8 @@ const EligibilityScreener = () => {
   }, []);
 
   const evaluateEligibility = useCallback(() => {
+    if (surveyCompleted) return; // Stop evaluating if the survey has ended
+
     const programEligibilityMap = {};
 
     programs.forEach((program) => {
@@ -76,9 +79,10 @@ const EligibilityScreener = () => {
       console.log("No eligible programs remaining. Ending survey.");
       if (surveyModel) {
         surveyModel.completedHtml = "<h3>Survey Complete</h3><p>You are not eligible for any programs.</p>";
-        surveyModel.complete(); // End the survey programmatically
+        surveyModel.doComplete(); // Transition survey to "complete" state
+        setSurveyCompleted(true); // Prevent further updates
       }
-      return; // Exit to avoid further processing
+      return;
     }
 
     if (
@@ -98,7 +102,7 @@ const EligibilityScreener = () => {
     }
 
     console.log("Eligible programs:", updatedEligiblePrograms);
-  }, [programs, criteria, questions, eligiblePrograms, meetsCriterion, surveyModel]);
+  }, [programs, criteria, questions, eligiblePrograms, meetsCriterion, surveyModel, surveyCompleted]);
 
   const initializeSurveyModel = useCallback(() => {
     const surveyQuestions = questions.map((question) => ({
@@ -125,9 +129,11 @@ const EligibilityScreener = () => {
       const survey = initializeSurveyModel();
 
       survey.onValueChanged.add((sender, options) => {
+        if (surveyCompleted) return; // Skip evaluation if the survey is complete
+
         const { name, value } = options;
         userResponses.current[name] = value;
-        evaluateEligibility(); // Evaluate eligibility after each question
+        evaluateEligibility();
       });
 
       survey.onComplete.add(() => {
@@ -136,7 +142,7 @@ const EligibilityScreener = () => {
 
       setSurveyModel(survey);
     }
-  }, [initializeSurveyModel, evaluateEligibility, surveyModel]);
+  }, [initializeSurveyModel, evaluateEligibility, surveyModel, surveyCompleted]);
 
   return (
     <div>
