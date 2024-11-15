@@ -4,20 +4,14 @@ import { Survey } from "survey-react-ui";
 import surveyData from "./config/eligibility_config.json";
 import "survey-core/defaultV2.min.css";
 
-// Debounce helper to limit eligibility evaluation frequency
-const debounce = (func, delay) => {
-  let timer;
-  return (...args) => {
-    clearTimeout(timer);
-    timer = setTimeout(() => func(...args), delay);
-  };
-};
-
 const EligibilityScreener = () => {
-  const { programs, criteria, questions } = surveyData;
+  const { programs = [], criteria = [], questions = [] } = surveyData || {};
+  console.log(surveyData); // Confirm the structure
 
   const [surveyModel, setSurveyModel] = useState(null);
-  const [eligiblePrograms, setEligiblePrograms] = useState(new Set(programs.map((p) => p.id)));
+  const [eligiblePrograms, setEligiblePrograms] = useState(
+    new Set(programs.map((p) => p.id))
+  );
   const userResponses = useRef({});
 
   const meetsCriterion = useCallback((criterion, answer, householdSize) => {
@@ -43,11 +37,10 @@ const EligibilityScreener = () => {
     const programEligibilityMap = {};
 
     programs.forEach((program) => {
-      // Start with the assumption that the program is eligible
       programEligibilityMap[program.id] = true;
 
       for (const criteria_id of program.criteria_ids) {
-        if (!programEligibilityMap[program.id]) break; // Short-circuit if already ineligible
+        if (!programEligibilityMap[program.id]) break;
 
         const criterion = criteria.find((c) => c.id === criteria_id);
         const question = questions.find((q) =>
@@ -70,13 +63,8 @@ const EligibilityScreener = () => {
 
         const isPass = meetsCriterion(criterion, userAnswer, householdSize);
 
-        console.log(
-          `Evaluating Program: ${program.id}, Criterion: ${criteria_id}, Answer: ${userAnswer}, Pass: ${isPass}`
-        );
-
         if (!isPass) {
           programEligibilityMap[program.id] = false;
-          console.log(`Program "${program.id}" marked as ineligible due to failing criterion "${criteria_id}".`);
         }
       }
     });
@@ -85,19 +73,29 @@ const EligibilityScreener = () => {
       Object.keys(programEligibilityMap).filter((programId) => programEligibilityMap[programId])
     );
 
-    setEligiblePrograms(updatedEligiblePrograms);
-    console.log("Eligible Programs Updated:", updatedEligiblePrograms);
-  }, [programs, criteria, questions, meetsCriterion]);
+    if (
+      updatedEligiblePrograms.size !== eligiblePrograms.size ||
+      [...updatedEligiblePrograms].some((p) => !eligiblePrograms.has(p))
+    ) {
+      setEligiblePrograms(updatedEligiblePrograms);
+    }
+    console.log("Eligible programs:", updatedEligiblePrograms);
+  }, [programs, criteria, questions, eligiblePrograms, meetsCriterion]);
 
   const initializeSurveyModel = useCallback(() => {
-    const surveyQuestions = questions.map((question) => ({
-      name: question.question,
-      title: question.question,
-      type: question.type === "boolean" ? "radiogroup" : question.type === "number" ? "text" : "dropdown",
-      isRequired: true,
-      choices: question.input_type === "radio" ? ["Yes", "No"] : question.choices || undefined,
-      inputType: question.type === "number" ? "number" : undefined,
-    }));
+    const surveyQuestions = questions
+      .filter((question) =>
+        question.criteria_impact.some((impact) => eligiblePrograms.has(impact.program_id))
+      )
+      .map((question) => ({
+        name: question.question,
+        title: question.question,
+        type: question.type === "boolean" ? "radiogroup" : question.type === "number" ? "text" : "dropdown",
+        isRequired: true,
+        choices: question.input_type === "radio" ? ["Yes", "No"] : question.choices || undefined,
+        inputType: question.type === "number" ? "number" : undefined,
+      }));
+    console.log(surveyQuestions); // Confirm the structure
 
     const survey = new SurveyCore.Model({
       questions: surveyQuestions,
@@ -106,18 +104,16 @@ const EligibilityScreener = () => {
     });
 
     return survey;
-  }, [questions]);
+  }, [questions, eligiblePrograms]);
 
+  // Initialize survey model once
   useEffect(() => {
     const survey = initializeSurveyModel();
-    const debouncedEvaluateEligibility = debounce(evaluateEligibility, 300);
 
     survey.onValueChanged.add((sender, options) => {
       const { name, value } = options;
       userResponses.current[name] = value;
-      console.log("Current user responses:", { ...userResponses.current });
-
-      debouncedEvaluateEligibility();
+      evaluateEligibility(); // Only evaluate eligibility here
     });
 
     survey.onComplete.add(() => {
@@ -127,14 +123,18 @@ const EligibilityScreener = () => {
     setSurveyModel(survey);
   }, [initializeSurveyModel, evaluateEligibility]);
 
+  // Update survey model dynamically when eligible programs change
+  useEffect(() => {
+    if (surveyModel) {
+      const updatedSurvey = initializeSurveyModel();
+      setSurveyModel(updatedSurvey);
+    }
+  }, [eligiblePrograms, initializeSurveyModel]);
+
   return (
     <div>
       <h1>Eligibility Screener</h1>
-      {surveyModel ? (
-        <Survey model={surveyModel} />
-      ) : (
-        <p>Loading...</p>
-      )}
+      {surveyModel ? <Survey model={surveyModel} /> : <p>Loading...</p>}
     </div>
   );
 };
