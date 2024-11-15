@@ -13,7 +13,7 @@
     {
       "id": "msp",
       "name": "Massachusetts Senior Program",
-      "criteria_ids": ["income_level_msp", "age_requirement"]
+      "criteria_ids": ["income_level_msp", "age_requirement", "ssn_required"]
     },
     {
       "id": "wic",
@@ -21,7 +21,8 @@
       "criteria_ids": [
         "income_level_wic",
         "pregnancy_or_child_requirement",
-        "state_residency"
+        "state_residency",
+        "ssn_required"
       ]
     }
   ],
@@ -148,6 +149,14 @@
         },
         {
           "program_id": "lifeline",
+          "criteria_id": "ssn_required"
+        },
+        {
+          "program_id": "wic",
+          "criteria_id": "ssn_required"
+        },
+        {
+          "program_id": "msp",
           "criteria_id": "ssn_required"
         }
       ]
