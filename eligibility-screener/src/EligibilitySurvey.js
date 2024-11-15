@@ -104,6 +104,7 @@ const EligibilityScreener = () => {
       }
       return;
     }
+    console.log("Updated eligible programs 2:", updatedEligiblePrograms);
 
     setEligiblePrograms(updatedEligiblePrograms);
     console.log("Eligible programs after evaluation:", updatedEligiblePrograms);
@@ -166,7 +167,26 @@ const EligibilityScreener = () => {
   return (
     <div>
       <h1>Eligibility Screener</h1>
-      {surveyModel ? <Survey model={surveyModel} /> : <p>Loading...</p>}
+      {surveyCompleted ? (
+        <div className="completion-container">
+          <h3 className="completion-title">Survey Complete</h3>
+          {eligiblePrograms.size > 0 ? (
+            <>
+              <p className="completion-message">Congratulations! You are eligible for the following programs:</p>
+              <ul className="completion-list">
+                {Array.from(eligiblePrograms).map((programId) => {
+                  const program = programs.find((p) => p.id === programId);
+                  return <li key={programId}>{program?.name || "Unknown Program"}</li>;
+                })}
+              </ul>
+            </>
+          ) : (
+            <p className="completion-message">Unfortunately, you are not eligible for any programs at this time.</p>
+          )}
+        </div>
+      ) : (
+        surveyModel ? <Survey model={surveyModel} /> : <p>Loading...</p>
+      )}
     </div>
   );
 };
