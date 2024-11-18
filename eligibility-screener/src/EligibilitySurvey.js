@@ -102,6 +102,44 @@ const EligibilityScreener = () => {
       surveyModel.showNavigationButtons = false;
   
       return;
+    } else if (updatedEligiblePrograms.size > 0 && surveyModel.isLastPage) {
+      console.log("Eligible programs found. Displaying eligible programs.");
+    
+      // Hide all existing questions
+      surveyModel.getAllQuestions().forEach((q) => (q.visible = false));
+    
+      // Dynamically add a new page with the list of eligible programs
+      const eligibleProgramsPage = surveyModel.addNewPage("EligibleProgramsPage");
+      eligibleProgramsPage.addNewQuestion("html", "eligibleProgramsMessage").html = `
+        <div style="text-align: center; padding: 20px;">
+          <h3 style="font-size: 1.8rem; color: #2c3e50;">Congratulations! You are eligible for the following programs:</h3>
+          <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; display: inline-block; margin-top: 10px;">
+            <ul style="list-style: none; padding: 0; margin: 0; text-align: left;">
+              ${Array.from(updatedEligiblePrograms)
+                .map(
+                  (programId) => {
+                    const program = programs.find((p) => p.id === programId);
+                    return `
+                      <li style="font-size: 1.2rem; margin: 5px 0; display: flex; align-items: center;">
+                        <span style="margin-right: 8px; color: #2ecc71;">✔</span>
+                        ${program?.name || "Unknown Program"}
+                      </li>
+                    `;
+                  }
+                )
+                .join("")}
+            </ul>
+          </div>
+        </div>
+      `;
+    
+      // Navigate to the newly added page
+      surveyModel.currentPage = eligibleProgramsPage;
+    
+      // Disable navigation buttons (including "Complete")
+      surveyModel.showNavigationButtons = false;
+    
+      return;
     }
   
     console.log("Eligible programs after evaluation:", updatedEligiblePrograms);
