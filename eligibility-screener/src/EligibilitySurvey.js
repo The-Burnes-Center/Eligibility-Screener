@@ -77,33 +77,37 @@ const EligibilityScreener = () => {
       }
     });
   
-    // Set the eligible programs before checking for completion
     const updatedEligiblePrograms = new Set(
       Object.keys(programEligibilityMap).filter((programId) => programEligibilityMap[programId])
     );
-    setEligiblePrograms(updatedEligiblePrograms); // Update the state here
+    setEligiblePrograms(updatedEligiblePrograms);
   
-    console.log("Updated eligible programs:", updatedEligiblePrograms);
-  
-    // If no programs are eligible, end the survey
     if (updatedEligiblePrograms.size === 0) {
       console.log("No eligible programs remaining. Ending survey.");
-      if (surveyModel) {
-        surveyModel.completedHtml = "<h3>Survey Complete</h3><p>Unfortunately, you are not eligible for any programs.</p>";
   
-        // Hide all questions
-        const surveyQuestions = surveyModel.getAllQuestions();
-        surveyQuestions.forEach((q) => (q.visible = false));
-        console.log("Survey questions hidden:", surveyQuestions);
+      // Hide all existing questions
+      surveyModel.getAllQuestions().forEach((q) => (q.visible = false));
   
-        surveyModel.doComplete(); // End the survey
-        setSurveyCompleted(true);
-      }
+      // Dynamically add a new page with the no-eligibility message
+      const noEligibilityPage = surveyModel.addNewPage("NoEligibilityPage");
+      noEligibilityPage.addNewQuestion("html", "noEligibilityMessage").html = `
+        <h3>Unfortunately, you are not eligible for any programs.</h3>
+        <p>Based on your responses, we couldn't determine eligibility for any programs at this time.</p>
+      `;
+  
+      // Navigate to the newly added page
+      surveyModel.currentPage = noEligibilityPage;
+
+       // Disable navigation buttons (including "Complete")
+      surveyModel.showNavigationButtons = false;
+  
       return;
     }
   
     console.log("Eligible programs after evaluation:", updatedEligiblePrograms);
   }, [programs, criteria, questions, meetsCriterion, surveyModel]);
+  
+  
   
 
   const initializeSurveyModel = useCallback(() => {
@@ -121,7 +125,12 @@ const EligibilityScreener = () => {
       questions: surveyQuestions,
       questionsOnPageMode: "single",
       showQuestionNumbers: "off",
+      progressBarType: "questions", // Add progress bar based on the number of questions answered
     });
+
+    // Ensure progress bar is visible
+    survey.showProgressBar = "top"; // Display the progress bar at the top of the survey
+
 
     console.log('eliglbe', eligiblePrograms);
     survey.completedHtml = "<h3>Survey Complete</h3><p>Your eligible programs will be displayed here.</p>";
