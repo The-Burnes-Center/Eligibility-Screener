@@ -1,3 +1,12 @@
+body {
+    background-color: #f0f2f5; /* Set your gray color */
+    margin: 0;
+    height: 100%;
+  }
+  html {
+    height: 100%; /* Ensure the height is inherited properly */
+  }  
+
 .page-title {
     font-size: 36px;
     font-weight: 600;
@@ -52,5 +61,14 @@
     content: "✔️";
     color: #27ae60;
     margin-right: 8px;
+  }
+
+  .container {
+    background-color: #f8f9fa;
+    min-height: 100vh; /* Full viewport height */
+    display: flex;
+    flex-direction: column; /* If you want to center-align content */
+    justify-content: center; /* Vertical alignment */
+    align-items: center; /* Horizontal alignment */
   }
   

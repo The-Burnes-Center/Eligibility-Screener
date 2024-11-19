@@ -12,7 +12,7 @@
     },
     {
       "id": "msp",
-      "name": "Massachusetts Senior Program",
+      "name": "Medicare Savings Program",
       "criteria_ids": ["income_level_msp", "age_requirement", "ssn_required"]
     },
     {
