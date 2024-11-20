@@ -6,9 +6,6 @@ import "survey-core/defaultV2.min.css";
 
 const EligibilityScreener = () => {
   const { programs = [], criteria = [], questions = [] } = surveyData || {};
-  console.log("Programs:", programs);
-  console.log("Criteria:", criteria);
-  console.log("Questions:", questions);
 
   const userResponses = useRef({});
   const [eligiblePrograms, setEligiblePrograms] = useState(
@@ -16,6 +13,7 @@ const EligibilityScreener = () => {
   );
   const [surveyCompleted, setSurveyCompleted] = useState(false);
   const [surveyModel, setSurveyModel] = useState(null);
+  const [evaluationPending, setEvaluationPending] = useState(false); // Tracks pending evaluations
 
   const meetsCriterion = useCallback((criterion, answer, householdSize) => {
     if (!criterion) return true;
@@ -38,81 +36,120 @@ const EligibilityScreener = () => {
 
   const evaluateEligibility = useCallback(() => {
     if (!surveyModel) {
-      console.warn("Survey model not initialized. Skipping evaluation.");
+      console.warn("Survey model not initialized. Deferring evaluation.");
+      setEvaluationPending(true);
       return;
     }
-
+  
     const programEligibilityMap = {};
-
+  
     programs.forEach((program) => {
       programEligibilityMap[program.id] = true;
-
-      (program.criteria_ids || []).forEach((criteria_id) => {
-        if (!programEligibilityMap[program.id]) return;
-
+  
+      for (const criteria_id of program.criteria_ids) {
+        if (!programEligibilityMap[program.id]) break;
+  
         const criterion = criteria.find((c) => c.id === criteria_id);
         const question = questions.find((q) =>
           q.criteria_impact.some((ci) => ci.criteria_id === criteria_id)
         );
-
-        if (!criterion || !question) {
-          console.warn(
-            `Missing criterion "${criteria_id}" or question for program "${program.id}".`
-          );
-          return;
+  
+        if (!question) {
+          console.warn(`No question found for criterion "${criteria_id}" in program "${program.id}". Skipping.`);
+          continue;
         }
-
+  
         const questionName = question.question;
         const userAnswer = userResponses.current[questionName];
         const householdSize = userResponses.current["What is your household size?"];
-
-        if (userAnswer === undefined) return;
-
+  
+        if (userAnswer === undefined) {
+          console.log(`Awaiting answer for criterion "${criteria_id}" in program "${program.id}".`);
+          continue;
+        }
+  
         const isPass = meetsCriterion(criterion, userAnswer, householdSize);
-
+  
         if (!isPass) {
-          console.log(
-            `Criterion "${criteria_id}" failed for program "${program.id}". Reason: ${criterion.description}`
-          );
+          console.log(`Criterion "${criteria_id}" failed for program "${program.id}". Marking ineligible.`);
           programEligibilityMap[program.id] = false;
         }
-      });
+      }
     });
-
+  
     const updatedEligiblePrograms = new Set(
       Object.keys(programEligibilityMap).filter((programId) => programEligibilityMap[programId])
     );
     setEligiblePrograms(updatedEligiblePrograms);
-
+  
     if (updatedEligiblePrograms.size === 0) {
-      surveyModel.completedHtml = `
+      console.log("No eligible programs remaining. Ending survey.");
+  
+      // Hide all existing questions
+      surveyModel.getAllQuestions().forEach((q) => (q.visible = false));
+  
+      // Dynamically add a new page with the no-eligibility message
+      const noEligibilityPage = surveyModel.addNewPage("NoEligibilityPage");
+      noEligibilityPage.addNewQuestion("html", "noEligibilityMessage").html = `
         <h3>Unfortunately, you are not eligible for any programs.</h3>
-        <p>You may want to revisit your answers or check other eligibility criteria.</p>
+        <p>Based on your responses, we couldn't determine eligibility for any programs at this time.</p>
       `;
-    } else {
-      surveyModel.completedHtml = `
-        <h3>Congratulations! You are still eligible for:</h3>
-        <ul>
-          ${Array.from(updatedEligiblePrograms)
-            .map((programId) => {
-              const program = programs.find((p) => p.id === programId);
-              return `<li>${program?.name || "Unknown Program"}</li>`;
-            })
-            .join("")}
-        </ul>
+  
+      // Navigate to the newly added page
+      surveyModel.currentPage = noEligibilityPage;
+
+       // Disable navigation buttons (including "Complete")
+      surveyModel.showNavigationButtons = false;
+  
+      return;
+    } else if (updatedEligiblePrograms.size > 0 && surveyModel.isLastPage) {
+      console.log("Eligible programs found. Displaying eligible programs.");
+    
+      // Hide all existing questions
+      surveyModel.getAllQuestions().forEach((q) => (q.visible = false));
+    
+      // Dynamically add a new page with the list of eligible programs
+      const eligibleProgramsPage = surveyModel.addNewPage("EligibleProgramsPage");
+      eligibleProgramsPage.addNewQuestion("html", "eligibleProgramsMessage").html = `
+        <div style="text-align: center; padding: 20px;">
+          <h3 style="font-size: 1.8rem; color: #2c3e50;">Congratulations! You are eligible for the following programs:</h3>
+          <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; display: inline-block; margin-top: 10px;">
+            <ul style="list-style: none; padding: 0; margin: 0; text-align: left;">
+              ${Array.from(updatedEligiblePrograms)
+                .map(
+                  (programId) => {
+                    const program = programs.find((p) => p.id === programId);
+                    return `
+                      <li style="font-size: 1.2rem; margin: 5px 0; display: flex; align-items: center;">
+                        <span style="margin-right: 8px; color: #2ecc71;">✔</span>
+                        ${program?.name || "Unknown Program"}
+                      </li>
+                    `;
+                  }
+                )
+                .join("")}
+            </ul>
+          </div>
+        </div>
       `;
+    
+      // Navigate to the newly added page
+      surveyModel.currentPage = eligibleProgramsPage;
+    
+      // Disable navigation buttons (including "Complete")
+      surveyModel.showNavigationButtons = false;
+    
+      return;
     }
-  }, [surveyModel, programs, criteria, questions, meetsCriterion]);
+  
+    console.log("Eligible programs after evaluation:", updatedEligiblePrograms);
+  }, [programs, criteria, questions, meetsCriterion, surveyModel]);
+  
+  
+  
 
   const initializeSurveyModel = useCallback(() => {
-    console.trace("initializeSurveyModel called");
     console.log("Initializing survey model...");
-
-    if (!questions || questions.length === 0) {
-      console.warn("No questions found to initialize survey.");
-      return null;
-    }
-
     const surveyQuestions = questions.map((question) => ({
       name: question.question,
       title: question.question,
@@ -126,50 +163,69 @@ const EligibilityScreener = () => {
       questions: surveyQuestions,
       questionsOnPageMode: "single",
       showQuestionNumbers: "off",
-      progressBarType: "questions",
+      progressBarType: "questions", // Add progress bar based on the number of questions answered
     });
 
-    survey.showProgressBar = "top";
+    // Ensure progress bar is visible
+    survey.showProgressBar = "top"; // Display the progress bar at the top of the survey
+
+
+    console.log('eliglbe', eligiblePrograms);
+    survey.completedHtml = "<h3>Survey Complete</h3><p>Your eligible programs will be displayed here.</p>";
 
     survey.onValueChanged.add((sender, options) => {
+      if (surveyCompleted) {
+        console.log("Survey already completed. Ignoring value change.");
+        return;
+      }
+
       const { name, value } = options;
       userResponses.current[name] = value;
-
+      console.log("User responses updated:", userResponses.current);
       evaluateEligibility();
     });
 
     survey.onComplete.add(() => {
-      setSurveyCompleted(true);
+      console.log("Survey complete. Final user responses:", { ...userResponses.current });
     });
 
     return survey;
-  }, [questions, evaluateEligibility]);
-
-  const surveyModelRef = useRef(null);
+  }, [questions, evaluateEligibility, surveyCompleted]);
 
   useEffect(() => {
-    if (!surveyModelRef.current) {
+    if (!surveyModel) {
+      console.log("Setting survey model...");
       const survey = initializeSurveyModel();
-      surveyModelRef.current = survey;
       setSurveyModel(survey);
     }
-  }, [initializeSurveyModel]);
+  }, [initializeSurveyModel, surveyModel]);
+
+  useEffect(() => {
+    if (surveyModel && evaluationPending) {
+      console.log("Deferred evaluation running...");
+      setEvaluationPending(false); // Clear pending state
+      evaluateEligibility();
+    }
+  }, [surveyModel, evaluationPending, evaluateEligibility]);
 
   return (
     <div>
       <h1>Eligibility Screener</h1>
       {surveyCompleted ? (
-        <div>
-          <h3>Survey Complete</h3>
+        <div className="completion-container">
+          <h3 className="completion-title">Survey Complete</h3>
           {eligiblePrograms.size > 0 ? (
-            <ul>
-              {Array.from(eligiblePrograms).map((programId) => {
-                const program = programs.find((p) => p.id === programId);
-                return <li key={programId}>{program?.name || "Unknown Program"}</li>;
-              })}
-            </ul>
+            <>
+              <p className="completion-message">Congratulations! You are eligible for the following programs:</p>
+              <ul className="completion-list">
+                {Array.from(eligiblePrograms).map((programId) => {
+                  const program = programs.find((p) => p.id === programId);
+                  return <li key={programId}>{program?.name || "Unknown Program"}</li>;
+                })}
+              </ul>
+            </>
           ) : (
-            <p>Unfortunately, you are not eligible for any programs.</p>
+            <p className="completion-message">Unfortunately, you are not eligible for any programs at this time.</p>
           )}
         </div>
       ) : (

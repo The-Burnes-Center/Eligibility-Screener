@@ -176,7 +176,7 @@
     {
       "question": "Do you participate in SNAP, Medicaid, or other assistance programs?",
       "type": "boolean",
-      "input_type": "checkbox",
+      "input_type": "radio",
       "criteria_impact": [
         {
           "program_id": "lifeline",
