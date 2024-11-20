@@ -111,23 +111,14 @@
       "id": "program_participation_lifeline",
       "type": "option",
       "category": "program_participation",
-      "options": [
-        "SNAP",
-        "Medicaid",
-        "Federal Public Housing Assistance",
-        "Veterans Pension and Survivors Benefit"
-      ],
+      "options": ["Yes"],
       "description": "Participation in specific programs qualifies for Lifeline."
     },
     {
       "id": "program_participation_wic",
       "type": "option",
       "category": "program_participation",
-      "options": [
-        "MassHealth",
-        "SNAP",
-        "Transitional Aid to Families with Dependent Children (TAFDC)"
-      ],
+      "options": ["Yes"],
       "description": "Participation in specific programs qualifies for WIC."
     }
   ],
