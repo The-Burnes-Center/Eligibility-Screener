@@ -8,12 +8,10 @@ const EligibilityScreener = () => {
   const { programs = [], criteria = [], questions = [] } = surveyData || {};
 
   const userResponses = useRef({});
-  const [eligiblePrograms, setEligiblePrograms] = useState(
-    new Set(programs.map((p) => p.id))
-  );
+  const [eligiblePrograms, setEligiblePrograms] = useState(new Set(programs.map((p) => p.id)));
   const [surveyCompleted, setSurveyCompleted] = useState(false);
   const [surveyModel, setSurveyModel] = useState(null);
-  const [evaluationPending, setEvaluationPending] = useState(false);
+  const [evaluationPending, setEvaluationPending] = useState(false); // Tracks pending evaluations
 
   const meetsCriterion = useCallback((criterion, answer, householdSize) => {
     if (!criterion) return true;
@@ -41,35 +39,15 @@ const EligibilityScreener = () => {
       return;
     }
 
+    console.log("Evaluating eligibility...");
     const programEligibilityMap = {};
 
-    // Get the state from user responses
-    const userState = userResponses.current["What state do you live in?"]; // Get state residency response
-
-    // Loop through programs and evaluate eligibility
     programs.forEach((program) => {
       programEligibilityMap[program.id] = true;
 
-      // Check if the program has a state residency requirement
-      const stateResidencyCriteria = program.criteria_ids
-        .map((criteriaId) => criteria.find((criterion) => criterion.id === criteriaId))
-        .find((criterion) => criterion.category === "requirements" && criterion.options);
-
-      // If state residency is required, validate the user's state
-      if (stateResidencyCriteria) {
-        const requiredStates = stateResidencyCriteria.options;
-
-        // If the user's state is not in the list of required states, mark the program as ineligible
-        if (!requiredStates.includes(userState)) {
-          console.log(`User does not meet state residency requirement for program "${program.id}".`);
-          programEligibilityMap[program.id] = false; // Mark program as ineligible
-          return;
-        }
-      }
-
-      // Evaluate the program's criteria (income, SSN, etc.)
-      for (const criteria_id of program.criteria_ids) {
-        if (!programEligibilityMap[program.id]) break;
+      // Track eligibility status after each question
+      program.criteria_ids.forEach((criteria_id) => {
+        if (!programEligibilityMap[program.id]) return;
 
         const criterion = criteria.find((c) => c.id === criteria_id);
         const question = questions.find((q) =>
@@ -78,25 +56,29 @@ const EligibilityScreener = () => {
 
         if (!question) {
           console.warn(`No question found for criterion "${criteria_id}" in program "${program.id}". Skipping.`);
-          continue;
+          return;
         }
 
         const questionName = question.question;
         const userAnswer = userResponses.current[questionName];
         const householdSize = userResponses.current["What is your household size?"];
 
+        console.log(`Evaluating question: ${questionName}`);
+        console.log(`User answer: ${userAnswer}, household size: ${householdSize}`);
+
         if (userAnswer === undefined) {
           console.log(`Awaiting answer for criterion "${criteria_id}" in program "${program.id}".`);
-          continue;
+          return;
         }
 
         const isPass = meetsCriterion(criterion, userAnswer, householdSize);
+        console.log(`Does the user meet the criterion? ${isPass}`);
 
         if (!isPass) {
           console.log(`Criterion "${criteria_id}" failed for program "${program.id}". Marking ineligible.`);
           programEligibilityMap[program.id] = false;
         }
-      }
+      });
     });
 
     const updatedEligiblePrograms = new Set(
@@ -175,11 +157,13 @@ const EligibilityScreener = () => {
       
       // Handle dropdown options specifically
       if (question.input_type === "dropdown") {
-        choices = question.options || [];  // Make sure the options are passed correctly
+        choices = question.options || [];  // Ensure options are passed correctly
+        console.log(`Dropdown options for "${question.question}":`, choices);
       } else if (question.input_type === "radio") {
         choices = question.options ? question.options : ["Yes", "No"];  // Default for radio
       }
-
+  
+      console.log(`Adding question: ${question.question} with choices: ${choices}`);
       return {
         name: question.question,
         title: question.question,
@@ -189,50 +173,79 @@ const EligibilityScreener = () => {
         inputType: question.type === "number" ? "number" : undefined,
       };
     });
-
+  
     const survey = new SurveyCore.Model({
       questions: surveyQuestions,
       questionsOnPageMode: "single",
       showQuestionNumbers: "off",
       progressBarType: "questions", // Add progress bar based on the number of questions answered
     });
-
+  
     // Ensure progress bar is visible
     survey.showProgressBar = "top"; // Display the progress bar at the top of the survey
-
+  
     survey.completedHtml = "<h3>Survey Complete</h3><p>Your eligible programs will be displayed here.</p>";
-
+  
     survey.onValueChanged.add((sender, options) => {
       if (surveyCompleted) {
         console.log("Survey already completed. Ignoring value change.");
         return;
       }
-
+  
       const { name, value } = options;
       userResponses.current[name] = value;
       console.log("User responses updated:", userResponses.current);
       evaluateEligibility();
     });
-
+  
     survey.onComplete.add(() => {
       console.log("Survey complete. Final user responses:", { ...userResponses.current });
+      setSurveyCompleted(true); // Mark survey as complete
     });
-
+  
     return survey;
   }, [questions, evaluateEligibility, surveyCompleted]);
+  
 
   useEffect(() => {
     if (!surveyModel) {
       console.log("Setting survey model...");
       const survey = initializeSurveyModel();
-      setSurveyModel(survey); // Only set the survey model when it's initialized
+      setSurveyModel(survey);
     }
   }, [initializeSurveyModel, surveyModel]);
+
+  useEffect(() => {
+    if (surveyModel && evaluationPending) {
+      console.log("Deferred evaluation running...");
+      setEvaluationPending(false); // Clear pending state
+      evaluateEligibility();
+    }
+  }, [surveyModel, evaluationPending, evaluateEligibility]);
 
   return (
     <div>
       <h1>Eligibility Screener</h1>
-      {surveyModel ? <Survey model={surveyModel} /> : <p>Loading...</p>}
+      {surveyCompleted ? (
+        <div className="completion-container">
+          <h3 className="completion-title">Survey Complete</h3>
+          {eligiblePrograms.size > 0 ? (
+            <>
+              <p className="completion-message">Congratulations! You are eligible for the following programs:</p>
+              <ul className="completion-list">
+                {Array.from(eligiblePrograms).map((programId) => {
+                  const program = programs.find((p) => p.id === programId);
+                  return <li key={programId}>{program?.name || "Unknown Program"}</li>;
+                })}
+              </ul>
+            </>
+          ) : (
+            <p className="completion-message">Unfortunately, you are not eligible for any programs at this time.</p>
+          )}
+        </div>
+      ) : (
+        surveyModel ? <Survey model={surveyModel} /> : <p>Loading...</p>
+      )}
     </div>
   );
 };
