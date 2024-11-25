@@ -13,6 +13,7 @@ const EligibilityScreener = () => {
   const [surveyModel, setSurveyModel] = useState(null);
   const [evaluationPending, setEvaluationPending] = useState(false); // Tracks pending evaluations
 
+  // Criteria thresholds for eligiblity evaluation
   const meetsCriterion = useCallback((criterion, answer, householdSize) => {
     if (!criterion) return true;
 
@@ -115,18 +116,34 @@ const EligibilityScreener = () => {
       // Dynamically add a new page with the list of eligible programs
       const eligibleProgramsPage = surveyModel.addNewPage("EligibleProgramsPage");
       eligibleProgramsPage.addNewQuestion("html", "eligibleProgramsMessage").html = `
-        <div style="text-align: center; padding: 20px;">
-          <h3 style="font-size: 1.8rem; color: #2c3e50;">Congratulations! You are eligible for the following programs:</h3>
-          <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; display: inline-block; margin-top: 10px;">
-            <ul style="list-style: none; padding: 0; margin: 0; text-align: left;">
+        <div style="text-align: center; padding: 30px;">
+          <h3 style="font-size: 2rem; color: #2c3e50;">Congratulations! You are eligible for the following programs:</h3>
+          <div style="background: #f8f9fa; padding: 30px; border-radius: 12px; display: inline-block; margin-top: 20px; max-width: 600px; box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);">
+            <ul style="list-style: none; padding: 0; margin: 0; text-align: left; font-size: 1.2rem;">
               ${Array.from(updatedEligiblePrograms)
                 .map(
                   (programId) => {
                     const program = programs.find((p) => p.id === programId);
                     return `
-                      <li style="font-size: 1.2rem; margin: 5px 0; display: flex; align-items: center;">
-                        <span style="margin-right: 8px; color: #2ecc71;">✔</span>
-                        ${program?.name || "Unknown Program"}
+                      <li style="margin: 20px 0; display: flex; align-items: center; gap: 10px;">
+                        <!-- Checkbox -->
+                        <span style="color: #2ecc71; font-size: 1.5rem; margin-right: 10px;">✔</span>
+                        
+                        <!-- Program Details -->
+                        <div style="flex: 1; display: flex; justify-content: space-between; align-items: center; gap: 20px;">
+                          <!-- Program Name -->
+                          <div style="font-weight: bold; font-size: 1.5rem; color: #34495e; max-width: 60%;">
+                            ${program?.name || "Unknown Program"}
+                          </div>
+                          
+                          <!-- Savings & Link -->
+                          <div style="text-align: right; color: #7f8c8d; font-size: 1rem; max-width: 40%;">
+                            <div style="font-size: 1.2rem; font-weight: bold; margin-bottom: 5px;">
+                              ${program?.estimated_savings || "Savings info not available"}
+                            </div>
+                            ${program?.application_link ? `<a href="${program.application_link}" target="_blank" rel="noopener noreferrer" style="color: #3498db; text-decoration: none; font-size: 1rem;">Apply Now</a>` : ""}
+                          </div>
+                        </div>
                       </li>
                     `;
                   }
@@ -136,6 +153,10 @@ const EligibilityScreener = () => {
           </div>
         </div>
       `;
+
+
+
+
 
       // Navigate to the newly added page
       surveyModel.currentPage = eligibleProgramsPage;
@@ -151,16 +172,20 @@ const EligibilityScreener = () => {
 
   const initializeSurveyModel = useCallback(() => {
     console.log("Initializing survey model...");
-    
+
+    const programNamesHtml = programs
+      .map((program) => `<li>${program.name}</li>`)
+      .join("");
+  
     const surveyQuestions = questions.map((question) => {
       let choices = [];
-      
+  
       // Handle dropdown options specifically
       if (question.input_type === "dropdown") {
-        choices = question.options || [];  // Ensure options are passed correctly
+        choices = question.options || []; // Ensure options are passed correctly
         console.log(`Dropdown options for "${question.question}":`, choices);
       } else if (question.input_type === "radio") {
-        choices = question.options ? question.options : ["Yes", "No"];  // Default for radio
+        choices = question.options ? question.options : ["Yes", "No"]; // Default for radio
       }
   
       console.log(`Adding question: ${question.question} with choices: ${choices}`);
@@ -169,20 +194,40 @@ const EligibilityScreener = () => {
         title: question.question,
         type: question.type === "boolean" ? "radiogroup" : question.type === "number" ? "text" : "dropdown",
         isRequired: true,
-        choices: choices,  // Ensure the choices are passed for dropdown
+        choices: choices, // Ensure the choices are passed for dropdown
         inputType: question.type === "number" ? "number" : undefined,
       };
     });
   
     const survey = new SurveyCore.Model({
-      questions: surveyQuestions,
+      pages: [
+        {
+          name: "welcome",
+          elements: [
+            {
+              type: "html",
+              name: "welcomeText",
+              html: `
+                <h2>Welcome to the Eligibility Screener</h2>
+                <p>We will guide you through a series of questions to determine your eligibility the following programs:</p>
+                <ul>${programNamesHtml}</ul>
+                <p>Click <strong>Start</strong> to begin.</p>
+                <p>Please note that none of your data will be collected!</p>
+              `,
+            },
+          ],
+        },
+        {
+          name: "questions",
+          elements: surveyQuestions,
+        },
+      ],
+      firstPageIsStarted: true,
+      startSurveyText: "Start",
+      showProgressBar: "top",
       questionsOnPageMode: "single",
       showQuestionNumbers: "off",
-      progressBarType: "questions", // Add progress bar based on the number of questions answered
     });
-  
-    // Ensure progress bar is visible
-    survey.showProgressBar = "top"; // Display the progress bar at the top of the survey
   
     survey.completedHtml = "<h3>Survey Complete</h3><p>Your eligible programs will be displayed here.</p>";
   
@@ -225,10 +270,9 @@ const EligibilityScreener = () => {
 
   return (
     <div>
-      <h1>Eligibility Screener</h1>
       {surveyCompleted ? (
         <div className="completion-container">
-          <h3 className="completion-title">Survey Complete</h3>
+          <h3 className="completion-title">Eligibility Survey Complete</h3>
           {eligiblePrograms.size > 0 ? (
             <>
               <p className="completion-message">Congratulations! You are eligible for the following programs:</p>
