@@ -5,6 +5,7 @@
       "name": "SNAP",
       "estimated_savings": "Up to $250/month",
       "application_link": "https://dtaconnect.eohhs.mass.gov/",
+      "criteria_logic": "AND",
       "criteria_ids": [
         "income_level_snap",
         "ssn_required",
@@ -15,10 +16,23 @@
       "id": "lifeline",
       "name": "Lifeline",
       "estimated_savings": "Up to $111/year for internet/phone subsidies",
+      "application_link": "https://www.lifelinesupport.org/",
+      "criteria_logic": "AND",
       "criteria_ids": [
-        "income_level_lifeline",
-        "program_participation_lifeline",
-        "ssn_required"
+        "ssn_required",
+        {
+          "type": "any_of",
+          "criteria_ids": [
+            {
+              "type": "income_based",
+              "criteria_ids": ["income_level_lifeline"]
+            },
+            {
+              "type": "program_participation",
+              "criteria_ids": ["program_participation_lifeline"]
+            }
+          ]
+        }
       ]
     },
     {
@@ -26,10 +40,20 @@
       "name": "Medicare Savings Program",
       "estimated_savings": "Varies by individual",
       "application_link": "https://www.mass.gov/medicare-savings-programs",
+      "criteria_logic": "OR",
       "criteria_ids": [
-        "income_level_msp",
-        "ssn_required",
-        "program_participation_msp"
+        {
+          "type": "all_of",
+          "criteria_ids": [
+            "state_residency_wic",
+            "ssn_required",
+            "income_level_msp"
+          ]
+        },
+        {
+          "type": "all_of",
+          "criteria_ids": ["program_participation_msp"]
+        }
       ]
     },
     {
@@ -37,11 +61,20 @@
       "name": "WIC",
       "estimated_savings": "$50–80/month",
       "application_link": "https://www.mass.gov/how-to/apply-for-wic",
+      "criteria_logic": "AND",
       "criteria_ids": [
-        "income_level_wic",
-        "pregnancy_or_child_requirement",
         "state_residency_wic",
-        "program_participation_wic"
+        "pregnancy_or_child_requirement",
+        {
+          "type": "any_of",
+          "criteria_ids": [
+            "income_level_wic",
+            {
+              "type": "program_participation",
+              "criteria_ids": ["program_participation_wic"]
+            }
+          ]
+        }
       ]
     }
   ],
@@ -141,7 +174,7 @@
       "type": "option",
       "category": "program_participation",
       "options": ["Yes"],
-      "description": "Participation in specific programs qualifies for WIC."
+      "description": "Participation in MassHealth, SNAP, or TAFDC makes you automatically eligible for WIC."
     },
     {
       "id": "program_participation_msp",
@@ -176,7 +209,7 @@
     {
       "question": "What is your household size?",
       "type": "number",
-      "input_type": "dropdown",
+      "input_type": "text",
       "criteria_impact": [
         { "program_id": "snap_mass", "criteria_id": "income_level_snap" },
         { "program_id": "lifeline", "criteria_id": "income_level_lifeline" },
