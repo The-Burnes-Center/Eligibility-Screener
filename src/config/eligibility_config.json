@@ -2,7 +2,7 @@
   "programs": [
     {
       "id": "snap_mass",
-      "name": "SNAP",
+      "name": "Supplemental Nutrition Assistance Program (SNAP)",
       "estimated_savings": "Up to $250/month",
       "application_link": "https://dtaconnect.eohhs.mass.gov/",
       "criteria_logic": "AND",
@@ -37,7 +37,7 @@
     },
     {
       "id": "msp",
-      "name": "Medicare Savings Program",
+      "name": "Medicare Savings Program (MSP)",
       "estimated_savings": "Varies by individual",
       "application_link": "https://www.mass.gov/medicare-savings-programs",
       "criteria_logic": "OR",
@@ -58,7 +58,7 @@
     },
     {
       "id": "wic_mass",
-      "name": "WIC",
+      "name": "Women, Infants, & Children Nutrition Program (WIC)",
       "estimated_savings": "$50–80/month",
       "application_link": "https://www.mass.gov/how-to/apply-for-wic",
       "criteria_logic": "AND",
