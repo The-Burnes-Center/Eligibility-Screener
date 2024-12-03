@@ -33,6 +33,67 @@ const EligibilityScreener = () => {
     return true;
   }, []);
 
+  const evaluateCriteriaGroup = useCallback((criteriaGroup, programId) => {
+    if (!criteriaGroup) return true;
+
+    // Handle simple criteria ID (string)
+    if (typeof criteriaGroup === 'string') {
+      const criterion = criteria.find(c => c.id === criteriaGroup);
+      const question = questions.find(q =>
+        q.criteria_impact.some(ci => ci.criteria_id === criteriaGroup)
+      );
+      
+      if (!question) {
+        console.warn(`No question found for criterion "${criteriaGroup}" in program "${programId}"`);
+        return true;
+      }
+
+      const questionName = question.question;
+      const userAnswer = userResponses.current[questionName];
+      const householdSize = userResponses.current["What is your household size?"];
+
+      return meetsCriterion(criterion, userAnswer, householdSize);
+    }
+
+    // Handle nested criteria groups
+    switch (criteriaGroup.type) {
+      case 'all_of':
+        return criteriaGroup.criteria_ids.every(subCriteria => 
+          evaluateCriteriaGroup(subCriteria, programId)
+        );
+      
+      case 'any_of':
+        return criteriaGroup.criteria_ids.some(subCriteria => 
+          evaluateCriteriaGroup(subCriteria, programId)
+        );
+      
+      case 'income_based':
+      case 'program_participation':
+        return criteriaGroup.criteria_ids.some(subCriteria => 
+          evaluateCriteriaGroup(subCriteria, programId)
+        );
+      
+      default:
+        console.warn(`Unknown criteria group type: ${criteriaGroup.type}`);
+        return false;
+    }
+  }, [criteria, questions, meetsCriterion, userResponses]);
+
+  const hasRequiredAnswers = useCallback((programId) => {
+    const program = programs.find(p => p.id === programId);
+    if (!program) return false;
+
+    // Get all questions that impact this program
+    const programQuestions = questions.filter(q =>
+      q.criteria_impact.some(ci => ci.program_id === programId)
+    );
+
+    // Check if we have answers for all required questions
+    return programQuestions.every(question => 
+      userResponses.current[question.question] !== undefined
+    );
+  }, [programs, questions]);
+
   const evaluateEligibility = useCallback(() => {
     if (!surveyModel) {
       console.warn("Survey model not initialized. Deferring evaluation.");
@@ -43,43 +104,26 @@ const EligibilityScreener = () => {
     console.log("Evaluating eligibility...");
     const programEligibilityMap = {};
 
+    // Only evaluate programs where we have all required answers
     programs.forEach((program) => {
-      programEligibilityMap[program.id] = true;
+      if (!hasRequiredAnswers(program.id)) {
+        console.log(`Skipping evaluation for ${program.id} - missing required answers`);
+        programEligibilityMap[program.id] = true; // Keep program eligible until we have all answers
+        return;
+      }
 
-      // Track eligibility status after each question
-      program.criteria_ids.forEach((criteria_id) => {
-        if (!programEligibilityMap[program.id]) return;
-
-        const criterion = criteria.find((c) => c.id === criteria_id);
-        const question = questions.find((q) =>
-          q.criteria_impact.some((ci) => ci.criteria_id === criteria_id)
+      // Evaluate based on program's criteria logic
+      if (program.criteria_logic === 'AND') {
+        programEligibilityMap[program.id] = program.criteria_ids.every(criteriaGroup =>
+          evaluateCriteriaGroup(criteriaGroup, program.id)
         );
+      } else if (program.criteria_logic === 'OR') {
+        programEligibilityMap[program.id] = program.criteria_ids.some(criteriaGroup =>
+          evaluateCriteriaGroup(criteriaGroup, program.id)
+        );
+      }
 
-        if (!question) {
-          console.warn(`No question found for criterion "${criteria_id}" in program "${program.id}". Skipping.`);
-          return;
-        }
-
-        const questionName = question.question;
-        const userAnswer = userResponses.current[questionName];
-        const householdSize = userResponses.current["What is your household size?"];
-
-        console.log(`Evaluating question: ${questionName}`);
-        console.log(`User answer: ${userAnswer}, household size: ${householdSize}`);
-
-        if (userAnswer === undefined) {
-          console.log(`Awaiting answer for criterion "${criteria_id}" in program "${program.id}".`);
-          return;
-        }
-
-        const isPass = meetsCriterion(criterion, userAnswer, householdSize);
-        console.log(`Does the user meet the criterion? ${isPass}`);
-
-        if (!isPass) {
-          console.log(`Criterion "${criteria_id}" failed for program "${program.id}". Marking ineligible.`);
-          programEligibilityMap[program.id] = false;
-        }
-      });
+      console.log(`Program ${program.id} eligibility:`, programEligibilityMap[program.id]);
     });
 
     const updatedEligiblePrograms = new Set(
@@ -87,40 +131,37 @@ const EligibilityScreener = () => {
     );
     setEligiblePrograms(updatedEligiblePrograms);
 
-    if (updatedEligiblePrograms.size === 0) {
-      console.log("No eligible programs remaining. Ending survey.");
+    // Only show final results if we're on the last page or all programs are ineligible
+    const allProgramsEvaluated = programs.every(program => hasRequiredAnswers(program.id));
+    const noEligiblePrograms = updatedEligiblePrograms.size === 0 && allProgramsEvaluated;
 
-      // Hide all existing questions
-      surveyModel.getAllQuestions().forEach((q) => (q.visible = false));
+    if (noEligiblePrograms || (updatedEligiblePrograms.size > 0 && surveyModel.isLastPage)) {
+      displayResults(updatedEligiblePrograms, noEligiblePrograms);
+    }
 
-      // Dynamically add a new page with the no-eligibility message
+    console.log("Eligible programs after evaluation:", updatedEligiblePrograms);
+  }, [programs, evaluateCriteriaGroup, surveyModel, hasRequiredAnswers]);
+
+  // New helper function to display results
+  const displayResults = useCallback((eligiblePrograms, noEligiblePrograms) => {
+    // Hide all existing questions
+    surveyModel.getAllQuestions().forEach((q) => (q.visible = false));
+
+    if (noEligiblePrograms) {
       const noEligibilityPage = surveyModel.addNewPage("NoEligibilityPage");
       noEligibilityPage.addNewQuestion("html", "noEligibilityMessage").html = `
         <h3>Unfortunately, you are not eligible for any programs.</h3>
         <p>Based on your responses, we couldn't determine eligibility for any programs at this time.</p>
       `;
-
-      // Navigate to the newly added page
       surveyModel.currentPage = noEligibilityPage;
-
-      // Disable navigation buttons (including "Complete")
-      surveyModel.showNavigationButtons = false;
-
-      return;
-    } else if (updatedEligiblePrograms.size > 0 && surveyModel.isLastPage) {
-      console.log("Eligible programs found. Displaying eligible programs.");
-
-      // Hide all existing questions
-      surveyModel.getAllQuestions().forEach((q) => (q.visible = false));
-
-      // Dynamically add a new page with the list of eligible programs
+    } else {
       const eligibleProgramsPage = surveyModel.addNewPage("EligibleProgramsPage");
       eligibleProgramsPage.addNewQuestion("html", "eligibleProgramsMessage").html = `
         <div style="text-align: center; padding: 30px;">
           <h3 style="font-size: 2rem; color: #2c3e50;">Congratulations! You are eligible for the following programs:</h3>
           <div style="background: #f8f9fa; padding: 30px; border-radius: 12px; display: inline-block; margin-top: 20px; max-width: 600px; box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);">
             <ul style="list-style: none; padding: 0; margin: 0; text-align: left; font-size: 1.2rem;">
-              ${Array.from(updatedEligiblePrograms)
+              ${Array.from(eligiblePrograms)
                 .map(
                   (programId) => {
                     const program = programs.find((p) => p.id === programId);
@@ -153,22 +194,11 @@ const EligibilityScreener = () => {
           </div>
         </div>
       `;
-
-
-
-
-
-      // Navigate to the newly added page
       surveyModel.currentPage = eligibleProgramsPage;
-
-      // Disable navigation buttons (including "Complete")
-      surveyModel.showNavigationButtons = false;
-
-      return;
     }
 
-    console.log("Eligible programs after evaluation:", updatedEligiblePrograms);
-  }, [programs, criteria, questions, meetsCriterion, surveyModel]);
+    surveyModel.showNavigationButtons = false;
+  }, [surveyModel, programs]);
 
   const initializeSurveyModel = useCallback(() => {
     console.log("Initializing survey model...");
