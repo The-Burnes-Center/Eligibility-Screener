@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/Eligibility_Screener/static/css/main.b2219977.css",
+    "main.js": "/Eligibility_Screener/static/js/main.82c9b43a.js",
+    "index.html": "/Eligibility_Screener/index.html",
+    "main.b2219977.css.map": "/Eligibility_Screener/static/css/main.b2219977.css.map",
+    "main.82c9b43a.js.map": "/Eligibility_Screener/static/js/main.82c9b43a.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.b2219977.css",
+    "static/js/main.82c9b43a.js"
+  ]
+}
