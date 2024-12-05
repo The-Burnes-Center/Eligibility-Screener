@@ -16,7 +16,7 @@
       "id": "lifeline",
       "name": "Lifeline",
       "estimated_savings": "Up to $111/year for internet/phone subsidies",
-      "application_link": "https://www.lifelinesupport.org/",
+      "application_link": "https://getinternet.gov/apply?id=nv_flow&ln=RW5nbGlzaA%3D%3D",
       "criteria_logic": "AND",
       "criteria_ids": [
         "ssn_required",
