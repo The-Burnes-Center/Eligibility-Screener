@@ -238,7 +238,7 @@ const EligibilityScreener = () => {
               type: "html",
               name: "welcomeText",
               html: `
-                <h2>Welcome to the Eligibility Screener</h2>
+                <h2>Welcome to the Eligibility Screener!</h2>
                 <p>We will guide you through a series of questions to determine your eligibility the following programs:</p>
                 <ul>${programNamesHtml}</ul>
                 <p>Click <strong>Start</strong> to begin.</p>
